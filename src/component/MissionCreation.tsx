@@ -1,20 +1,26 @@
-import React from "react";
+import React, { useState } from "react";
 import close from "../assets/images/close.png";
 import upload from "../assets/images/upload.png";
 import option from "../assets/images/option.png";
 import insertbelow from "../assets/images/insertbelow.png";
-import { Popover } from "@mui/material";
-import { PointDataIf } from "../uitls/interfaces";
+import { Icon, Popover } from "@mui/material";
+import { ActiveEnterPointsIf, MissionPointIf, PointDataIf } from "../uitls/interfaces";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import { toast } from "react-toastify";
 
 
 
 interface MissionCreationProps {
-  points: PointDataIf[];
+  points: MissionPointIf[]
   modalLine: boolean;
   setModalLine: (value: boolean) => void;
   modalPoly: boolean;
   setmodalPoly: (value: boolean) => void;
-  setPolyPoints: React.Dispatch<React.SetStateAction<PointDataIf[]>>
+  setPolyPoints: React.Dispatch<React.SetStateAction<PointDataIf[]>>;
+  handleActiveEnterPoints: (key: keyof ActiveEnterPointsIf, val: boolean) => void;
+  setbelowActive: React.Dispatch<React.SetStateAction<boolean | null>>;
+  setModalPolyIndex: React.Dispatch<React.SetStateAction<number | null>>;
 }
 
 const MissionCreation: React.FC<MissionCreationProps> = ({
@@ -23,14 +29,25 @@ const MissionCreation: React.FC<MissionCreationProps> = ({
   setModalLine,
   modalPoly,
   setmodalPoly,
-  setPolyPoints
+  setPolyPoints,
+  handleActiveEnterPoints,
+  setbelowActive,
+  setModalPolyIndex
 }) => {
   const [openPopoverIndex, setOpenPopoverIndex] = React.useState<number | null>(null);
   const [popoverAnchorEl, setPopoverAnchorEl] = React.useState<HTMLElement | null>(null);
 
-  const handleClickPopperOver = (index: number, point: PointDataIf) => {
-    console.log(index, point);
+  const [openDropdownIndex, setOpenDropdownIndex] = useState<number | null>(null);
+
+  const toggleDropdown = (index: number) => {
+    // Toggle dropdown for the clicked index
+    setOpenDropdownIndex((prevIndex) => (prevIndex === index ? null : index));
+  };
+
+  const handleClickPopperOver = (point: PointDataIf, index: number) => {
     setmodalPoly(true);
+    setModalPolyIndex(index)
+    handleActiveEnterPoints("poly", true)
     setPolyPoints([
       {
         number: point.number,
@@ -73,7 +90,7 @@ const MissionCreation: React.FC<MissionCreationProps> = ({
           {points.length > 0 && (
             <div className="mb-6">
               <div className="flex items-center px-3 h-5 mb-3">
-                <span className="w-[6px] h-[20px] rounded-md mr-3 bg-gray-200 "></span>
+                <span className="w-[6px] h-[20px] rounded-md mr-3 bg-white "></span>
                 <input type="checkbox" />
                 <p className="font-semibold w-9 ml-3">WP</p>
                 <p className="font-semibold flex-1">Coordinates</p>
@@ -83,76 +100,138 @@ const MissionCreation: React.FC<MissionCreationProps> = ({
                 <img src={upload} alt="upload" className="h-5" />
               </div>
               <div className="border-[1px] border-gray-200 rounded-md">
-                {points.map((point, index) => (
-                  <div
-                    className="flex items-center px-3 py-1 border-b bg-[#fafafa] relative"
-                    key={index}
-                  >
-                    <span className="w-[6px] h-[20px] rounded-md mr-3 bg-gray-200 "></span>
-                    <input type="checkbox" />
-                    <p className="w-9 ml-3">
-                      {String(index + 1).padStart(2, "0")}
-                    </p>
-                    <p className="flex-1">
-                      {point.longitude.toFixed(8)}, {point.latitude.toFixed(8)}
-                    </p>
-                    <p className="w-24 mr-4 flex justify-center">
-                      {point.distanceFromPrevious !== null
-                        ? Math.round(point.distanceFromPrevious)
-                        : "--"}
-                    </p>
-                    <img
-                      src={option}
-                      alt="option"
-                      className="h-5 hover:cursor-pointer"
-                      aria-describedby={"simple-popover"}
-                      onClick={(event) => handlePopoverOpen(index, event)}
-                    />
-                    <Popover
-                      id={index.toString()}
-                      open={openPopoverIndex === index}
-                      anchorEl={popoverAnchorEl}
-                      onClose={handlePopoverClose}
-                      anchorOrigin={{
-                        vertical: "top",
-                        horizontal: "right",
-                      }}
-                      className="rounded-md"
-                      slotProps={{
-                        paper: {
-                          sx: {
-                            boxShadow: "2px 2px 6px rgba(0, 0, 0, 0.1)",
-                          },
-                        },
-                      }}
+                {points.map((point, index) => {
+                  if (point.type === "POLYGON") {
+                    return <div
+                      className="flex items-center px-3 py-1 border-b bg-[#fafafa] relative"
+                      key={index}
                     >
-                      <div className="rounded-md p-1">
-                        <div
-                          className="h-8 flex items-center hover:bg-[#dcdcdc] rounded-md px-2 hover:cursor-pointer"
-                          onClick={() => handleClickPopperOver(index, point)}
-                        >
-                          <img
-                            src={insertbelow}
-                            alt="insertbelow"
-                            className="h-[70%] mr-1"
-                          />
-                          <p>Insert Polygon before</p>
+                      <span className="w-[6px] h-[20px] rounded-md mr-3 bg-gray-200 "></span>
+                      <input type="checkbox" />
+                      <p className="w-9 ml-3">
+                        {String(index + 1).padStart(2, "0")}
+                      </p>
+                      <p className="flex-1">
+                        <div>
+                          <p className="flex">Polygon <span
+                            onClick={() => toggleDropdown(index)}
+                            className="cursor-pointer flex items-center ml-6"
+                          >
+                            <Icon
+                              component={
+                                openDropdownIndex === index
+                                  ? ExpandLessIcon
+                                  : ExpandMoreIcon
+                              }
+                              fontSize="small"
+                            />
+
+                          </span></p>
                         </div>
-                        <div
-                          className="h-8 flex items-center hover:bg-[#dcdcdc] rounded-md px-2 hover:cursor-pointer"
-                          onClick={() => handleClickPopperOver(index, point)}
+                        {openDropdownIndex === index && (
+                          point.points.slice(1).map((point,index)=>{
+                            return <div key={index} className="flex  w-[140%]">
+
+                            <p className="flex-1">
+                              {point.longitude.toFixed(8)}, {point.latitude.toFixed(8)}
+                            </p>
+                            <p className="w-24 mr-4 flex justify-center">
+                              {point.distanceFromPrevious !== null
+                                ? Math.round(point.distanceFromPrevious)
+                                : "--"}
+                            </p>
+                          </div>
+                          })
+                        )}
+                      </p>
+
+
+                      <p className="w-24 mr-4 flex justify-center">
+
+                      </p>
+
+                    </div>
+                  }
+                  else {
+                    return (
+
+                      <div
+                        className="flex items-center px-3 py-1 border-b bg-[#fafafa] relative"
+                        key={index}
+                      >
+                        <span className="w-[6px] h-[20px] rounded-md mr-3 bg-gray-200 "></span>
+                        <input type="checkbox" />
+                        <p className="w-9 ml-3">
+                          {String(index + 1).padStart(2, "0")}
+                        </p>
+                        <p className="flex-1">
+                          {point.longitude.toFixed(8)}, {point.latitude.toFixed(8)}
+                        </p>
+                        <p className="w-24 mr-4 flex justify-center">
+                          {point.distanceFromPrevious !== null
+                            ? Math.round(point.distanceFromPrevious)
+                            : "--"}
+                        </p>
+                        <img
+                          src={option}
+                          alt="option"
+                          className="h-5 hover:cursor-pointer"
+                          aria-describedby={"simple-popover"}
+                          onClick={(event) => handlePopoverOpen(index, event)}
+                        />
+                        <Popover
+                          id={index.toString()}
+                          open={openPopoverIndex === index}
+                          anchorEl={popoverAnchorEl}
+                          onClose={handlePopoverClose}
+                          anchorOrigin={{
+                            vertical: "top",
+                            horizontal: "right",
+                          }}
+                          className="rounded-md"
+                          slotProps={{
+                            paper: {
+                              sx: {
+                                boxShadow: "2px 2px 6px rgba(0, 0, 0, 0.1)",
+                              },
+                            },
+                          }}
                         >
-                          <img
-                            src={insertbelow}
-                            alt="insertbelow"
-                            className="h-[70%] mr-1 rotate-180"
-                          />
-                          <p>Insert Polygon after</p>
-                        </div>
+                          <div className="rounded-md p-1">
+                            <div
+                              className="h-8 flex items-center hover:bg-[#dcdcdc] rounded-md px-2 hover:cursor-pointer"
+                              onClick={() => {
+                                setbelowActive(true)
+                                handleClickPopperOver(point, index)
+                              }}
+                            >
+                              <img
+                                src={insertbelow}
+                                alt="insertbelow"
+                                className="h-[70%] mr-1"
+                              />
+                              <p>Insert Polygon before</p>
+                            </div>
+                            <div
+                              className="h-8 flex items-center hover:bg-[#dcdcdc] rounded-md px-2 hover:cursor-pointer"
+                              onClick={() => {
+                                setbelowActive(false)
+                                handleClickPopperOver(point, index)
+                              }}
+                            >
+                              <img
+                                src={insertbelow}
+                                alt="insertbelow"
+                                className="h-[70%] mr-1 rotate-180"
+                              />
+                              <p>Insert Polygon after</p>
+                            </div>
+                          </div>
+                        </Popover>
                       </div>
-                    </Popover>
-                  </div>
-                ))}
+                    )
+                  }
+                })}
               </div>
             </div>
           )}
@@ -165,7 +244,7 @@ const MissionCreation: React.FC<MissionCreationProps> = ({
           <button
             className="text-white bg-blue-400 px-4 py-2 rounded-md"
             onClick={() => {
-              setModalLine(false);
+              toast.success("Congratulations your data is generated.")
             }}
           >
             Generate Data

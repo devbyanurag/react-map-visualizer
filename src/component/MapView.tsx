@@ -11,22 +11,82 @@ import { getDistance } from "ol/sphere";
 import MissionCreation from "./MissionCreation";
 import PolygonCreation from "./PolygonCreation";
 import BottomControls from "./BottomControls";
-import { PointDataIf } from "../uitls/interfaces";
+import { ActiveEnterPointsIf, MissionPointIf, PointDataIf, PolygonDataIf } from "../uitls/interfaces";
+import { toast } from "react-toastify";
+
 
 
 const MapView: React.FC = () => {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const pointsSourceRef = useRef<VectorSource | null>(null);
   const linesSourceRef = useRef<VectorSource | null>(null);
-  const [points, setPoints] = useState<PointDataIf[]>([]);
+  const [points, setPoints] = useState<MissionPointIf[]>([]);
   const [modalLine, setModalLine] = useState<boolean>(false);
   const [modalPoly, setModalPoly] = useState<boolean>(false);
+  const [modalPolyIndex, setModalPolyIndex] = useState<number | null>(null);
+
   const [polyPoints, setPolyPoints] = useState<PointDataIf[]>([]);
 
 
   const mapObjRef = useRef<Map | null>(null);
   const lastPointRef = useRef<Feature | null>(null);
+  const [activeEnterPoints, setActiveEnterPoints] = useState<ActiveEnterPointsIf>({ line: true, poly: false })
+  const [belowActive, setbelowActive] = useState<boolean | null>(null)
 
+
+  const isPointData = (point: MissionPointIf): point is PointDataIf => {
+    return (point as PointDataIf).type === "LINE" || (point as PointDataIf).type === "POLY";
+  };
+  const addPolygonAtIndex = () => {
+    if(modalPolyIndex==null) return
+    let insertOn=modalPolyIndex;
+    if(!belowActive && belowActive!=null){
+      insertOn++
+    }
+    setPoints(prevPoints => {
+      if (insertOn < 0 || insertOn > prevPoints.length) {
+        toast.error("Invalid insert index!");
+        return prevPoints;
+      }
+  
+      const newPolygon: PolygonDataIf = {
+        type: "POLYGON",
+        number: insertOn + 1,  // Add number to polygon
+        points: polyPoints
+      };
+  
+      const updatedPoints = [...prevPoints];
+      updatedPoints.splice(insertOn, 0, newPolygon);
+  
+      // Update numbers for points after the insertion
+      for (let i = insertOn + 1; i < updatedPoints.length; i++) {
+        if (isPointData(updatedPoints[i])) {
+          updatedPoints[i] = {
+            ...updatedPoints[i],
+            number: i + 1
+          };
+        } else {
+          // Update polygon number if it's a polygon
+          updatedPoints[i] = {
+            ...updatedPoints[i],
+            number: i + 1
+          };
+        }
+      }
+  
+      return updatedPoints;
+    });
+  
+    // Clear polygon points after adding
+    setPolyPoints([]);
+  };
+
+  const handleActiveEnterPoints = (key: keyof ActiveEnterPointsIf, val: boolean) => {
+    setActiveEnterPoints(prevState => ({
+      ...prevState,
+      [key]: val,
+    }));
+  };
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -49,7 +109,7 @@ const MapView: React.FC = () => {
           image: new Circle({
             radius: 3,
             fill: new Fill({ color }),
-            stroke: pointNumber === 1 || feature === lastPointRef.current ?  new Stroke({ color: 'black', width: 2 }):undefined 
+            stroke: pointNumber === 1 || feature === lastPointRef.current ? new Stroke({ color: 'black', width: 2 }) : undefined
           }),
         });
       },
@@ -99,7 +159,7 @@ const MapView: React.FC = () => {
     mapObjRef.current = new Map({
       view: new View({
         center: fromLonLat([80, 20]),
-        zoom: 15,
+        zoom: 4,
       }),
       layers: [new TileLayer({ source: new OSM() }), linesLayer, pointsLayer],
     });
@@ -118,64 +178,146 @@ const MapView: React.FC = () => {
 
     const handleClick = (event: MapBrowserEvent<UIEvent>) => {
       event.stopPropagation();
-      if (!modalLine) return;
+      if (modalLine && !modalPoly && activeEnterPoints.line) {
+        const clickedCoord = event.coordinate;
+        const lonLat = transform(clickedCoord, "EPSG:3857", "EPSG:4326");
 
-      const clickedCoord = event.coordinate;
-      const lonLat = transform(clickedCoord, "EPSG:3857", "EPSG:4326");
+        setPoints((prevPoints) => {
+          const pointNumber = prevPoints.length + 1;
+          let distanceFromPrevious: number | null = null;
 
-      setPoints((prevPoints) => {
-        const pointNumber = prevPoints.length + 1;
-        let distanceFromPrevious: number | null = null;
-
-        const point = new Feature({
-          geometry: new Point(clickedCoord),
-          label: `Point ${pointNumber}`,
-          pointNumber,
-        });
-
-        // Update the last point reference
-        if (lastPointRef.current) {
-          lastPointRef.current.changed(); // Trigger style refresh for previous last point
-        }
-        lastPointRef.current = point;
-
-        pointsSourceRef.current!.addFeature(point);
-
-        if (prevPoints.length > 0) {
-          const prevPoint = prevPoints[prevPoints.length - 1];
-          const prevCoord = transform(
-            [prevPoint.longitude, prevPoint.latitude],
-            "EPSG:4326",
-            "EPSG:3857"
-          );
-
-          const line = new Feature({
-            geometry: new LineString([prevCoord, clickedCoord]),
+          const point = new Feature({
+            geometry: new Point(clickedCoord),
+            label: `Point ${pointNumber}`,
+            pointNumber,
           });
-          linesSourceRef.current!.addFeature(line);
 
-          distanceFromPrevious = getDistance(
-            [prevPoint.longitude, prevPoint.latitude],
-            [lonLat[0], lonLat[1]]
-          );
-        }
+          if (lastPointRef.current) {
+            lastPointRef.current.changed();
+          }
+          lastPointRef.current = point;
 
-        // Trigger a style refresh for all points
-        pointsSourceRef.current!.getFeatures().forEach((f) => {
-          f.changed();
+          pointsSourceRef.current!.addFeature(point);
+
+          if (prevPoints.length > 0) {
+            const prevPoint = prevPoints[prevPoints.length - 1];
+            
+            // Type check the previous point
+            if (isPointData(prevPoint)) {
+              const prevCoord = transform(
+                [prevPoint.longitude, prevPoint.latitude],
+                "EPSG:4326",
+                "EPSG:3857"
+              );
+
+              const line = new Feature({
+                geometry: new LineString([prevCoord, clickedCoord]),
+              });
+              linesSourceRef.current!.addFeature(line);
+
+              distanceFromPrevious = getDistance(
+                [prevPoint.longitude, prevPoint.latitude],
+                [lonLat[0], lonLat[1]]
+              );
+            }
+          }
+
+          pointsSourceRef.current!.getFeatures().forEach((f) => {
+            f.changed();
+          });
+
+          return [
+            ...prevPoints,
+            {
+              number: pointNumber,
+              longitude: lonLat[0],
+              latitude: lonLat[1],
+              distanceFromPrevious,
+              type: "LINE"
+            } as PointDataIf,
+          ];
         });
+      }
+      else if (modalLine && modalPoly && activeEnterPoints.poly) {
+        const clickedCoord = event.coordinate;
+        const lonLat = transform(clickedCoord, "EPSG:3857", "EPSG:4326");
 
-        return [
-          ...prevPoints,
-          {
-            number: pointNumber,
-            longitude: lonLat[0],
-            latitude: lonLat[1],
-            distanceFromPrevious,
-            type: "LINE"
-          },
-        ];
-      });
+        setPolyPoints((prevPoints) => {
+          const pointNumber = prevPoints.length + 1;
+          let distanceFromPrevious: number | null = null;
+
+          const point = new Feature({
+            geometry: new Point(clickedCoord),
+            label: `Point ${pointNumber}`,
+            pointNumber,
+          });
+
+          const pointStyle = new Style({
+            image: new Circle({
+              radius: 3, // Circle radius
+              fill: new Fill({
+                color: "#fdb605", // Set fill color based on condition
+              })
+            }),
+          });
+          point.setStyle(pointStyle);
+
+
+          // Update the last point reference
+          if (lastPointRef.current) {
+            lastPointRef.current.changed(); // Trigger style refresh for previous last point
+          }
+          lastPointRef.current = point;
+
+          pointsSourceRef.current!.addFeature(point);
+
+          if (prevPoints.length > 0) {
+            const prevPoint = prevPoints[prevPoints.length - 1];
+            const prevCoord = transform(
+              [prevPoint.longitude, prevPoint.latitude],
+              "EPSG:4326",
+              "EPSG:3857"
+            );
+
+            const line = new Feature({
+              geometry: new LineString([prevCoord, clickedCoord]),
+            });
+
+            line.setStyle(
+              new Style({
+                stroke: new Stroke({
+                  color: "#fdb605", // Line color
+                  width: 2,        // Line width
+                  lineDash: [10, 5], // Dash pattern: 10px line, 5px gap
+                }),
+              })
+            );
+            linesSourceRef.current!.addFeature(line);
+
+            distanceFromPrevious = getDistance(
+              [prevPoint.longitude, prevPoint.latitude],
+              [lonLat[0], lonLat[1]]
+            );
+          }
+
+          // Trigger a style refresh for all points
+          pointsSourceRef.current!.getFeatures().forEach((f) => {
+            f.changed();
+          });
+
+          return [
+            ...prevPoints,
+            {
+              number: pointNumber,
+              longitude: lonLat[0],
+              latitude: lonLat[1],
+              distanceFromPrevious,
+              type: "LINE"
+            },
+          ];
+        });
+      }
+
     };
 
     mapObjRef.current.on("click", handleClick);
@@ -185,9 +327,56 @@ const MapView: React.FC = () => {
         mapObjRef.current.un("click", handleClick);
       }
     };
-  }, [modalLine]);
+  }, [modalLine, modalPoly, activeEnterPoints]);
 
-  
+
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (event.key === 'Enter' && modalPoly) {
+        if (polyPoints.length < 3) {
+          toast.error("Polygon need alteast 2 points!");
+          return
+        }
+        const prevPoint = polyPoints[polyPoints.length - 1];
+        const prevCoord = transform(
+          [prevPoint.longitude, prevPoint.latitude],
+          "EPSG:4326",
+          "EPSG:3857"
+        );
+        const fisrtCoord = transform(
+          [polyPoints[0].longitude, polyPoints[0].latitude],
+          "EPSG:4326",
+          "EPSG:3857"
+        );
+        const line = new Feature({
+          geometry: new LineString([prevCoord, fisrtCoord]),
+        });
+
+        line.setStyle(
+          new Style({
+            stroke: new Stroke({
+              color: "#fdb605", // Line color
+              width: 2,        // Line width
+              lineDash: [10, 5], // Dash pattern: 10px line, 5px gap
+            }),
+          })
+        );
+        linesSourceRef.current!.addFeature(line);
+        handleActiveEnterPoints("poly", false)
+
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+    return () => {
+      document.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [modalPoly, polyPoints]);
+
+
+
+
+
 
   return (
     <div className="h-[90vh] w-[95%] relative border-2">
@@ -199,20 +388,25 @@ const MapView: React.FC = () => {
         modalPoly={modalPoly}
         setmodalPoly={setModalPoly}
         setPolyPoints={setPolyPoints}
+        handleActiveEnterPoints={handleActiveEnterPoints}
+        setbelowActive={setbelowActive}
+        setModalPolyIndex={setModalPolyIndex}
 
       />
       <PolygonCreation
         polyPoints={polyPoints}
         modalPoly={modalPoly}
         setmodalPoly={setModalPoly}
+        setPolyPoints={setPolyPoints}
+        setbelowActive={setbelowActive}
+        setModalPolyIndex={setModalPolyIndex}
+        addPolygonAtIndex={addPolygonAtIndex}
       />
       <BottomControls
         modalLine={modalLine}
         setModalLine={setModalLine}
       />
-      {/* <button className="z-50 absolute bg-blue-500"
-      onClick={()=>{console.log(pointsSourceRef.current)}}
-      >Hello</button> */}
+     
     </div>
   );
 };

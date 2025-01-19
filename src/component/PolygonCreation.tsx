@@ -1,6 +1,8 @@
 import React from "react";
 import KeyboardBackspaceIcon from '@mui/icons-material/KeyboardBackspace';
 import { Icon } from '@mui/material';
+import { PointDataIf } from "../uitls/interfaces";
+import { toast } from "react-toastify";
 
 interface Point {
   longitude: number;
@@ -12,12 +14,20 @@ interface PolygonCreationProps {
   polyPoints: Point[];
   modalPoly: boolean;
   setmodalPoly: (value: boolean) => void;
+  setPolyPoints: React.Dispatch<React.SetStateAction<PointDataIf[]>>;
+  setbelowActive: React.Dispatch<React.SetStateAction<boolean | null>>;
+  setModalPolyIndex: React.Dispatch<React.SetStateAction<number | null>>;
+  addPolygonAtIndex: () => void;
+  
 }
 
 const PolygonCreation: React.FC<PolygonCreationProps> = ({
   polyPoints,
   modalPoly,
   setmodalPoly,
+  setbelowActive,
+  setModalPolyIndex,
+  addPolygonAtIndex
 }) => {
   return (
     modalPoly && (
@@ -27,7 +37,10 @@ const PolygonCreation: React.FC<PolygonCreationProps> = ({
             <div className="flex">
             <button
               onClick={() => {
+                setModalPolyIndex(null)
                 setmodalPoly(false);
+                setbelowActive(null)
+                
               }}
             >
               <Icon component={KeyboardBackspaceIcon} style={{color:"#787878"}} fontSize={"small"}/>
@@ -45,7 +58,7 @@ const PolygonCreation: React.FC<PolygonCreationProps> = ({
           {polyPoints.length > 0 && (
             <div className="mb-6">
               <div className="flex items-center px-3 h-5 mb-3">
-                <span className="w-[6px] h-[20px] rounded-md mr-3 bg-gray-200 "></span>
+                <span className="w-[6px] h-[20px] rounded-md mr-3 bg-white "></span>
                 <input type="checkbox" />
                 <p className="font-semibold w-9 ml-3">WP</p>
                 <p className="font-semibold flex-1">Coordinates</p>
@@ -54,7 +67,7 @@ const PolygonCreation: React.FC<PolygonCreationProps> = ({
                 </p>
               </div>
               <div className="border-[1px] border-gray-200 rounded-md">
-                {polyPoints.map((point, index) => (
+                {polyPoints.slice(1).map((point, index) => (
                   <div
                     className="flex items-center px-3 py-1 border-b bg-[#fafafa] relative"
                     key={index}
@@ -62,7 +75,7 @@ const PolygonCreation: React.FC<PolygonCreationProps> = ({
                     <span className="w-[6px] h-[20px] rounded-md mr-3 bg-gray-200 "></span>
                     <input type="checkbox" />
                     <p className="w-9 ml-3">
-                      {String(index + 1).padStart(2, "0")}
+                      {String(index + 2).padStart(2, "0")}
                     </p>
                     <p className="flex-1">
                       {point.longitude.toFixed(8)}, {point.latitude.toFixed(8)}
@@ -86,10 +99,15 @@ const PolygonCreation: React.FC<PolygonCreationProps> = ({
           <button
             className="text-white bg-blue-400 px-4 py-2 rounded-md"
             onClick={() => {
+              if(polyPoints.length<3){
+                toast.error("There should be minimum 2 points to create a Polygon");
+                return
+              }
               setmodalPoly(false);
+              addPolygonAtIndex()
             }}
           >
-            Generate Data
+            Import Points
           </button>
         </div>
       </div>

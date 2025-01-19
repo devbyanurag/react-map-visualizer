@@ -12,12 +12,7 @@ const BottomControls: React.FC<BottomControlsProps> = ({
   return (
     <div className="absolute bottom-2 right-2 z-10 space-x-2">
       <button
-        style={{
-          backgroundColor: "#5046c3",
-          padding: "7px 10px",
-          borderRadius: "5px",
-          color: "white",
-        }}
+        className="bg-blue-700 py-2 px-3 rounded-md text-white"
         onClick={() => {
           setModalLine(!modalLine);
         }}
