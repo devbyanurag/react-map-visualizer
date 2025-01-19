@@ -1,5 +1,6 @@
 import React from "react";
-import close from "../assets/images/close.png";
+import KeyboardBackspaceIcon from '@mui/icons-material/KeyboardBackspace';
+import { Icon } from '@mui/material';
 
 interface Point {
   longitude: number;
@@ -22,14 +23,22 @@ const PolygonCreation: React.FC<PolygonCreationProps> = ({
     modalPoly && (
       <div className="absolute top-2 left-2 z-10 bg-white rounded shadow-lg max-h-[40vh] overflow-y-scroll w-[500px]">
         <div className="flex justify-between w-full shadow-md p-4">
-          <p className="font-bold">Polygon Creation</p>
-          <button
-            onClick={() => {
-              setmodalPoly(false);
-            }}
-          >
-            <img src={close} className="h-4" alt="close" />
-          </button>
+          <div>
+            <div className="flex">
+            <button
+              onClick={() => {
+                setmodalPoly(false);
+              }}
+            >
+              <Icon component={KeyboardBackspaceIcon} style={{color:"#787878"}} fontSize={"small"}/>
+            </button>
+            <p className="text-[#787878] ml-3">Mission Planner</p>
+            </div>
+            <p className="font-bold mt-2">Polygon Tool</p>
+           
+
+          </div>
+
         </div>
 
         <div className="p-4">
