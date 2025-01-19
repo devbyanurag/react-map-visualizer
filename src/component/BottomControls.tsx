@@ -3,13 +3,11 @@ import React from "react";
 interface BottomControlsProps {
   modalLine: boolean;
   setModalLine: (value: boolean) => void;
-  clearPoints: () => void;
 }
 
 const BottomControls: React.FC<BottomControlsProps> = ({
   modalLine,
-  setModalLine,
-  clearPoints,
+  setModalLine
 }) => {
   return (
     <div className="absolute bottom-2 right-2 z-10 space-x-2">
@@ -26,17 +24,7 @@ const BottomControls: React.FC<BottomControlsProps> = ({
       >
         {!modalLine ? "Draw" : "Close Draw"}
       </button>
-      <button
-        style={{
-          backgroundColor: "red",
-          padding: "7px 10px",
-          borderRadius: "5px",
-          color: "white",
-        }}
-        onClick={clearPoints}
-      >
-        Clear Points
-      </button>
+     
     </div>
   );
 };

@@ -4,38 +4,56 @@ import upload from "../assets/images/upload.png";
 import option from "../assets/images/option.png";
 import insertbelow from "../assets/images/insertbelow.png";
 import { Popover } from "@mui/material";
+import { PointDataIf } from "../uitls/interfaces";
 
-interface Point {
-  longitude: number;
-  latitude: number;
-  distanceFromPrevious: number | null;
-}
+
 
 interface MissionCreationProps {
-  points: Point[];
+  points: PointDataIf[];
   modalLine: boolean;
   setModalLine: (value: boolean) => void;
-  handleClickPopper: (event: React.MouseEvent<HTMLImageElement>) => void;
-  handleClose: () => void;
-  open: boolean;
-  anchorEl: HTMLElement | null;
-  id?: string;
   modalPoly: boolean;
   setmodalPoly: (value: boolean) => void;
+  setPolyPoints: React.Dispatch<React.SetStateAction<PointDataIf[]>>
 }
 
 const MissionCreation: React.FC<MissionCreationProps> = ({
   points,
   modalLine,
   setModalLine,
-  handleClickPopper,
-  handleClose,
-  open,
-  anchorEl,
-  id,
   modalPoly,
   setmodalPoly,
+  setPolyPoints
 }) => {
+  const [openPopoverIndex, setOpenPopoverIndex] = React.useState<number | null>(null);
+  const [popoverAnchorEl, setPopoverAnchorEl] = React.useState<HTMLElement | null>(null);
+
+  const handleClickPopperOver = (index: number, point: PointDataIf) => {
+    console.log(index, point);
+    setmodalPoly(true);
+    setPolyPoints([
+      {
+        number: point.number,
+        longitude: point.longitude,
+        latitude: point.latitude,
+        distanceFromPrevious: point.distanceFromPrevious,
+        type: "POLY",
+      },
+    ]);
+    setOpenPopoverIndex(null);
+    setPopoverAnchorEl(null);
+  };
+
+  const handlePopoverOpen = (index: number, event: React.MouseEvent<HTMLElement>) => {
+    setOpenPopoverIndex(index);
+    setPopoverAnchorEl(event.currentTarget);
+  };
+
+  const handlePopoverClose = () => {
+    setOpenPopoverIndex(null);
+    setPopoverAnchorEl(null);
+  };
+
   return (
     modalLine &&
     !modalPoly && (
@@ -87,14 +105,14 @@ const MissionCreation: React.FC<MissionCreationProps> = ({
                       src={option}
                       alt="option"
                       className="h-5 hover:cursor-pointer"
-                      aria-describedby={id}
-                      onClick={handleClickPopper}
+                      aria-describedby={"simple-popover"}
+                      onClick={(event) => handlePopoverOpen(index, event)}
                     />
                     <Popover
-                      id={id}
-                      open={open}
-                      anchorEl={anchorEl}
-                      onClose={handleClose}
+                      id={index.toString()}
+                      open={openPopoverIndex === index}
+                      anchorEl={popoverAnchorEl}
+                      onClose={handlePopoverClose}
                       anchorOrigin={{
                         vertical: "top",
                         horizontal: "right",
@@ -111,10 +129,7 @@ const MissionCreation: React.FC<MissionCreationProps> = ({
                       <div className="rounded-md p-1">
                         <div
                           className="h-8 flex items-center hover:bg-[#dcdcdc] rounded-md px-2 hover:cursor-pointer"
-                          onClick={() => {
-                            setmodalPoly(true);
-                            handleClose()
-                          }}
+                          onClick={() => handleClickPopperOver(index, point)}
                         >
                           <img
                             src={insertbelow}
@@ -125,10 +140,7 @@ const MissionCreation: React.FC<MissionCreationProps> = ({
                         </div>
                         <div
                           className="h-8 flex items-center hover:bg-[#dcdcdc] rounded-md px-2 hover:cursor-pointer"
-                          onClick={() => {
-                            setmodalPoly(true);
-                            handleClose()
-                          }}
+                          onClick={() => handleClickPopperOver(index, point)}
                         >
                           <img
                             src={insertbelow}
@@ -163,5 +175,7 @@ const MissionCreation: React.FC<MissionCreationProps> = ({
     )
   );
 };
+
+
 
 export default MissionCreation;

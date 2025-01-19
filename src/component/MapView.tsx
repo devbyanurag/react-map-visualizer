@@ -11,27 +11,22 @@ import { getDistance } from "ol/sphere";
 import MissionCreation from "./MissionCreation";
 import PolygonCreation from "./PolygonCreation";
 import BottomControls from "./BottomControls";
+import { PointDataIf } from "../uitls/interfaces";
 
-
-type PointData = {
-  number: number;
-  longitude: number;
-  latitude: number;
-  distanceFromPrevious: number | null;
-};
 
 const MapView: React.FC = () => {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const pointsSourceRef = useRef<VectorSource | null>(null);
   const linesSourceRef = useRef<VectorSource | null>(null);
-  const [points, setPoints] = useState<PointData[]>([]);
-  const [modalLine, setModalLine] = useState<boolean>(true);
+  const [points, setPoints] = useState<PointDataIf[]>([]);
+  const [modalLine, setModalLine] = useState<boolean>(false);
   const [modalPoly, setModalPoly] = useState<boolean>(false);
-  // const [polyPoints, setPolyPoints] = useState<PointData[]>([]);
+  const [polyPoints, setPolyPoints] = useState<PointDataIf[]>([]);
 
-  
+
   const mapObjRef = useRef<Map | null>(null);
   const lastPointRef = useRef<Feature | null>(null);
+
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -54,6 +49,7 @@ const MapView: React.FC = () => {
           image: new Circle({
             radius: 3,
             fill: new Fill({ color }),
+            stroke: pointNumber === 1 || feature === lastPointRef.current ?  new Stroke({ color: 'black', width: 2 }):undefined 
           }),
         });
       },
@@ -176,6 +172,7 @@ const MapView: React.FC = () => {
             longitude: lonLat[0],
             latitude: lonLat[1],
             distanceFromPrevious,
+            type: "LINE"
           },
         ];
       });
@@ -190,53 +187,32 @@ const MapView: React.FC = () => {
     };
   }, [modalLine]);
 
-  const clearPoints = () => {
-    if (pointsSourceRef.current && linesSourceRef.current) {
-      pointsSourceRef.current.clear();
-      linesSourceRef.current.clear();
-      setPoints([]);
-      lastPointRef.current = null; // Reset last point reference
-    }
-  };
-
-  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
-
-  const handleClickPopper = (event: React.MouseEvent<HTMLImageElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleClose = () => {
-    setAnchorEl(null);
-  };
-
-  const open = Boolean(anchorEl);
-  const id = open ? "simple-popover" : undefined;
+  
 
   return (
-    <div className="h-[90vh] w-[95%] relative border-2">c
+    <div className="h-[90vh] w-[95%] relative border-2">
       <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
       <MissionCreation
         points={points}
         modalLine={modalLine}
         setModalLine={setModalLine}
-        handleClickPopper={handleClickPopper}
-        handleClose={handleClose}
-        open={open}
-        anchorEl={anchorEl}
-        id={id}
         modalPoly={modalPoly}
         setmodalPoly={setModalPoly}
+        setPolyPoints={setPolyPoints}
+
       />
       <PolygonCreation
-        polyPoints={points}
+        polyPoints={polyPoints}
         modalPoly={modalPoly}
         setmodalPoly={setModalPoly}
       />
       <BottomControls
-        clearPoints={clearPoints}
         modalLine={modalLine}
         setModalLine={setModalLine}
       />
+      {/* <button className="z-50 absolute bg-blue-500"
+      onClick={()=>{console.log(pointsSourceRef.current)}}
+      >Hello</button> */}
     </div>
   );
 };
